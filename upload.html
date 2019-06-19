@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Upload</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+	<style>
+	    #progress{
+	      width: 300px;
+	      height: 20px;
+	      background-color:#f7f7f7;
+	      box-shadow:inset 0 1px 2px rgba(0,0,0,0.1);
+	      border-radius:4px;
+	      background-image:linear-gradient(to bottom,#f5f5f5,#f9f9f9);
+	    }
+	 
+	    #finish{
+	      background-color: #149bdf;
+	      background-image:linear-gradient(45deg,rgba(255,255,255,0.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,0.15) 50%,rgba(255,255,255,0.15) 75%,transparent 75%,transparent);
+	      background-size:40px 40px;
+	      height: 100%;
+	    }
+	    form{
+	      margin-top: 50px;
+	    }
+	</style>
+</head>
+<body>
+	<div id="progress">
+	  <div id="finish" style="width: 0%;" progress="0"></div> <span id="res"></span>
+	</div>
+	<div style="margin-top: 60px;">
+		<input style="float:left" type="file" name="" id='file'> <button style="float:left;margin-left: 50px" id="stop">暂停</button>
+	</div>
+</body>
+<script type="text/javascript">
+	onload = function(){
+		var fileBtn = document.getElementById('file')
+		var file = ''
+		var part = 1024*1024
+		var section;
+		var currentSection = 0;
+		var xhr = '';
+		var id = '';
+		var isStop = 0;
+
+		fileBtn.onchange = function() {
+			currentSection = 0;
+			xhr = new XMLHttpRequest();
+			id = new Date().getTime()
+			isStop = 0
+			file = fileBtn.files[0]
+			section = Math.ceil(file.size/part)
+			send();
+		}
+
+
+		function send() {
+			currentSection++;
+			var start = (currentSection-1)*part;
+			var end = start + part;
+			var blob = file.slice(start,end)
+			var form = new FormData();
+			form.append('id',id)
+			form.append('name',file.name)
+			form.append('file',blob)
+			form.append('end',0)
+			if (currentSection===section) {
+				form.append('end',1)
+			}
+			xhr.open('POST','./upload.php',false);
+			xhr.onreadystatechange = function () {
+				if(xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+					if (currentSection<=section) {
+						var data = JSON.parse(xhr.responseText)
+						if (data.code==0) {
+							setTimeout(()=>{
+								var progress = Math.floor(currentSection/section*100);
+								document.getElementById('finish').style.width = progress + '%'
+								document.getElementById('res').innerHTML = progress + '%'
+								if (currentSection<section) {
+									if (isStop===1) {
+										document.getElementById('stop').innerHTML = '已暂停';
+									} else {
+										send()
+									}
+								}
+							},0)
+						} else {
+							alert(data.msg)
+						}
+					} else if (currentSection>section) {
+						alert('error')
+					}
+				}
+      		}
+      		xhr.send(form);
+		}
+
+		document.getElementById('stop').onclick = function () {
+			if (currentSection<section && isStop===0) {
+				isStop = 1;
+				document.getElementById('stop').innerHTML = '暂停中...';
+			} else if (isStop===1) {
+				isStop = 0;
+				document.getElementById('stop').innerHTML = '暂停';
+				send();
+			} else {
+				alert('即将完成')
+			}
+		}
+
+	}
+</script>
+</html>
